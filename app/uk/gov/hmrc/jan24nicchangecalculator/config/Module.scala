@@ -16,12 +16,16 @@
 
 package uk.gov.hmrc.jan24nicchangecalculator.config
 
-import com.google.inject.AbstractModule
+import play.api.{Configuration, Environment}
+import play.api.inject.{Binding, Module => PlayModule}
+import uk.gov.hmrc.jan24nicchangecalculator.workers.MetricOrchestratorWorker
+import uk.gov.hmrc.mongo.metrix.MetricOrchestrator
 
-class Module extends AbstractModule {
+class Module extends PlayModule {
 
-  override def configure(): Unit = {
-
-    bind(classOf[AppConfig]).asEagerSingleton()
-  }
+  override def bindings(environment: Environment, configuration: Configuration): collection.Seq[Binding[_]] = Seq(
+    bind[AppConfig].toSelf.eagerly(),
+    bind[MetricOrchestrator].toProvider[MetricOrchestratorProvider],
+    bind[MetricOrchestratorWorker].toSelf.eagerly()
+  )
 }
