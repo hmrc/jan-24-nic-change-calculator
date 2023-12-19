@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.jan24nicchangecalculator.workers
+package workers
 
 import org.apache.pekko.actor.ActorSystem
 import play.api.inject.ApplicationLifecycle
