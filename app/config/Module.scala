@@ -37,11 +37,14 @@ import play.api.{Configuration, Environment}
 import uk.gov.hmrc.mongo.metrix.MetricOrchestrator
 import workers.MetricOrchestratorWorker
 
+import java.time.Clock
+
 class Module extends PlayModule {
 
   override def bindings(environment: Environment, configuration: Configuration): collection.Seq[Binding[_]] = Seq(
     bind[AppConfig].toSelf.eagerly(),
     bind[MetricOrchestrator].toProvider[MetricOrchestratorProvider],
-    bind[MetricOrchestratorWorker].toSelf.eagerly()
+    bind[MetricOrchestratorWorker].toSelf.eagerly(),
+    bind[Clock].toInstance(Clock.systemUTC())
   )
 }
