@@ -34,6 +34,7 @@ package config
 
 import com.codahale.metrics.MetricRegistry
 import play.api.Configuration
+import repositories.CalculationRepository
 import uk.gov.hmrc.mongo.lock.{LockService, MongoLockRepository}
 import uk.gov.hmrc.mongo.metrix.{MetricOrchestrator, MetricRepository, MetricSource}
 
@@ -46,7 +47,8 @@ class MetricOrchestratorProvider @Inject() (
                                              lockRepository: MongoLockRepository,
                                              metricRepository: MetricRepository,
                                              metricRegistry: MetricRegistry,
-                                             configuration: Configuration
+                                             configuration: Configuration,
+                                             calculationRepository: CalculationRepository
                                            ) extends Provider[MetricOrchestrator] {
 
   private val lockTtl: Duration = configuration.get[Duration]("workers.metric-orchestrator-worker.lock-ttl")
@@ -55,7 +57,19 @@ class MetricOrchestratorProvider @Inject() (
 
   private val source = new MetricSource {
     override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
-      Future.successful(Map.empty)
+      for {
+        numberOfCalculations <- calculationRepository.numberOfCalculations
+        numberOfUniqueSessions <- calculationRepository.numberOfUniqueSessions
+        totalSavings <- calculationRepository.totalSavings
+        totalSavingsAveragedBySession <- calculationRepository.totalSavingsAveragedBySession
+        averageSalary <- calculationRepository.averageSalary
+      } yield Map(
+        "numberOfCalculations" -> numberOfCalculations.toInt,
+        "numberOfUniqueSessions" -> numberOfUniqueSessions.toInt,
+        "totalSavings" -> totalSavings.toInt,
+        "totalSavingsAveragedBySession" -> totalSavingsAveragedBySession.toInt,
+        "averageSalary" -> averageSalary.toInt
+      )
   }
 
   override val get: MetricOrchestrator = new MetricOrchestrator(
