@@ -17,9 +17,13 @@
 package repositories
 
 import models.{Calculation, Done}
+import org.bson.conversions.Bson
+import org.mongodb.scala.model.Accumulators.sum
 import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
+import org.mongodb.scala.model.Aggregates._
+import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,6 +35,7 @@ extends PlayMongoRepository[Calculation](
   collectionName = "calculations",
   mongoComponent = mongoComponent,
   domainFormat   = Calculation.format,
+  extraCodecs    = Seq(Codecs.playFormatCodec(DistinctSessionIds.format)),
   indexes        = Seq(
     IndexModel(
       Indexes.ascending("timestamp"),
@@ -50,4 +55,16 @@ extends PlayMongoRepository[Calculation](
 
   def numberOfCalculations: Future[Long] =
     collection.countDocuments().head()
+
+  def numberOfUniqueSessions: Future[Long] =
+    collection.aggregate[DistinctSessionIds](Seq(
+      group("$sessionId", sum("count", 1)),
+      count("distinctSessionIds"))
+    ).headOption().map(_.map(_.distinctSessionIds).getOrElse(0))
+}
+
+final case class DistinctSessionIds(distinctSessionIds: Long)
+
+object DistinctSessionIds {
+  implicit lazy val format: Format[DistinctSessionIds] = Json.format
 }

@@ -107,4 +107,28 @@ class CalculationRepositorySpec
       }
     }
   }
+
+  ".numberOfUniqueSessions" - {
+
+    "must return the number of unique sessionIds in the calculations performed so far" in {
+
+      val calculationsWithTheSameSession: Gen[List[Calculation]] = for {
+        sessionIdLength <- Gen.chooseNum(10, 100)
+        sessionId <- Gen.stringOfN(sessionIdLength, Gen.alphaNumChar)
+        calculations <- Gen.nonEmptyListOf(arbitraryCalculation.arbitrary)
+      } yield calculations.map(_.copy(sessionId = Scrambled(sessionId)))
+
+      val calculationsGen: Gen[List[List[Calculation]]] = for {
+        expectedNumberOfSessions <- Gen.chooseNum(1, 25)
+        calculations <- Gen.listOfN(expectedNumberOfSessions, calculationsWithTheSameSession)
+      } yield calculations
+
+      forAll(calculationsGen) { calculations =>
+        prepareDatabase()
+        repository.numberOfUniqueSessions.futureValue mustEqual 0
+        Future.traverse(calculations.flatten)(repository.save).futureValue
+        repository.numberOfUniqueSessions.futureValue mustEqual calculations.flatten.map(_.sessionId.value).toSet.size
+      }
+    }
+  }
 }
