@@ -131,4 +131,22 @@ class CalculationRepositorySpec
       }
     }
   }
+
+  ".totalSavings" - {
+
+    "must return the total amount of savings from all calculations" in {
+
+      val calculations: Gen[List[Calculation]] = for {
+        numberOfCalculations <- Gen.chooseNum(0, 100)
+        calculations <- Gen.listOfN(numberOfCalculations, arbitraryCalculation.arbitrary)
+      } yield calculations
+
+      forAll(calculations) { calculations =>
+        prepareDatabase()
+        repository.totalSavings.futureValue mustEqual 0
+        Future.traverse(calculations)(repository.save).futureValue
+        repository.totalSavings.futureValue mustEqual calculations.map(_.roundedSaving).sum
+      }
+    }
+  }
 }

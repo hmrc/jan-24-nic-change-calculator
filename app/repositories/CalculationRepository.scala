@@ -17,10 +17,9 @@
 package repositories
 
 import models.{Calculation, Done}
-import org.bson.conversions.Bson
 import org.mongodb.scala.model.Accumulators.sum
-import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
 import org.mongodb.scala.model.Aggregates._
+import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
 import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
@@ -35,7 +34,10 @@ extends PlayMongoRepository[Calculation](
   collectionName = "calculations",
   mongoComponent = mongoComponent,
   domainFormat   = Calculation.format,
-  extraCodecs    = Seq(Codecs.playFormatCodec(DistinctSessionIds.format)),
+  extraCodecs    = Seq(
+    Codecs.playFormatCodec(DistinctSessionIds.format),
+    Codecs.playFormatCodec(TotalSavings.format)
+  ),
   indexes        = Seq(
     IndexModel(
       Indexes.ascending("timestamp"),
@@ -61,10 +63,21 @@ extends PlayMongoRepository[Calculation](
       group("$sessionId", sum("count", 1)),
       count("distinctSessionIds"))
     ).headOption().map(_.map(_.distinctSessionIds).getOrElse(0))
+
+  def totalSavings: Future[Long] =
+    collection.aggregate[TotalSavings](Seq(
+      group(null, sum("totalSavings", "$roundedSaving"))
+    )).headOption().map(_.map(_.totalSavings).getOrElse(0))
 }
 
 final case class DistinctSessionIds(distinctSessionIds: Long)
 
 object DistinctSessionIds {
   implicit lazy val format: Format[DistinctSessionIds] = Json.format
+}
+
+final case class TotalSavings(totalSavings: Long)
+
+object TotalSavings {
+  implicit lazy val format: Format[TotalSavings] = Json.format
 }
