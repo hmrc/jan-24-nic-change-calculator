@@ -62,7 +62,7 @@ extends PlayMongoRepository[Calculation](
 
   def numberOfUniqueSessions: Future[Long] =
     collection.aggregate[DistinctSessionIds](Seq(
-      group("$sessionId", sum("count", 1)),
+      group("$sessionId"),
       count("distinctSessionIds"))
     ).headOption().map(_.map(_.distinctSessionIds).getOrElse(0))
 
