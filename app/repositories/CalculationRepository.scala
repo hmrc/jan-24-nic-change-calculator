@@ -17,7 +17,7 @@
 package repositories
 
 import models.{Calculation, Done}
-import org.mongodb.scala.model.Accumulators.sum
+import org.mongodb.scala.model.Accumulators.{avg, sum}
 import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
 import play.api.libs.json.{Format, Json}
@@ -64,9 +64,15 @@ extends PlayMongoRepository[Calculation](
       count("distinctSessionIds"))
     ).headOption().map(_.map(_.distinctSessionIds).getOrElse(0))
 
-  def totalSavings: Future[Long] =
+  def totalSavings: Future[BigDecimal] =
     collection.aggregate[TotalSavings](Seq(
       group(null, sum("totalSavings", "$roundedSaving"))
+    )).headOption().map(_.map(_.totalSavings).getOrElse(0))
+
+  def totalSavingsAveragedBySession: Future[BigDecimal] =
+    collection.aggregate[TotalSavings](Seq(
+      group("$sessionId", avg("averageSavings", "$roundedSaving")),
+      group(null, sum("totalSavings", "$averageSavings"))
     )).headOption().map(_.map(_.totalSavings).getOrElse(0))
 }
 
@@ -76,7 +82,7 @@ object DistinctSessionIds {
   implicit lazy val format: Format[DistinctSessionIds] = Json.format
 }
 
-final case class TotalSavings(totalSavings: Long)
+final case class TotalSavings(totalSavings: BigDecimal)
 
 object TotalSavings {
   implicit lazy val format: Format[TotalSavings] = Json.format

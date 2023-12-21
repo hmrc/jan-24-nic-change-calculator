@@ -18,6 +18,7 @@ package repositories
 
 import models.Calculation
 import org.scalacheck.{Arbitrary, Gen, Shrink}
+import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.freespec.AnyFreeSpec
@@ -147,6 +148,22 @@ class CalculationRepositorySpec
         Future.traverse(calculations)(repository.save).futureValue
         repository.totalSavings.futureValue mustEqual calculations.map(_.roundedSaving).sum
       }
+    }
+  }
+
+  ".totalSavingsAveragedBySession" - {
+
+    "must return the total amount of savings where savings are grouped and averaged on sessionId" in {
+
+      val a1 = arbitrary[Calculation].sample.value.copy(sessionId = Scrambled("a"), roundedSaving = 100)
+      val a2 = a1.copy(roundedSaving = 200)
+
+      val b1 = arbitrary[Calculation].sample.value.copy(sessionId = Scrambled("b"), roundedSaving = 1000)
+      val b2 = b1.copy(roundedSaving = 2000)
+
+      repository.totalSavingsAveragedBySession.futureValue mustEqual 0
+      Future.traverse(Seq(a1, a2, b1, b2))(repository.save).futureValue
+      repository.totalSavingsAveragedBySession.futureValue mustEqual 1650
     }
   }
 }
