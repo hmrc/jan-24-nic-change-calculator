@@ -17,8 +17,8 @@
 package repositories
 
 import models.Calculation
-import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.freespec.AnyFreeSpec
@@ -30,7 +30,6 @@ import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, DefaultPlayMongoRepo
 import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.math.BigDecimal.RoundingMode
 
 class CalculationRepositorySpec
   extends AnyFreeSpec
@@ -178,7 +177,7 @@ class CalculationRepositorySpec
       } yield calculations
 
       forAll(calculationsGen) { calculations =>
-        val expectedAverageSalary = if (calculations.isEmpty) 0 else (calculations.map(_.annualSalary).sum / calculations.length).setScale(2, RoundingMode.HALF_DOWN)
+        val expectedAverageSalary = if (calculations.isEmpty) 0 else (calculations.map(_.annualSalary).sum / calculations.length).toLong
         prepareDatabase()
         repository.averageSalary.futureValue mustEqual 0
         Future.traverse(calculations)(repository.save).futureValue
