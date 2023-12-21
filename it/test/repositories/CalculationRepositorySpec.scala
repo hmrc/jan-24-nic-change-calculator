@@ -30,6 +30,7 @@ import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, DefaultPlayMongoRepo
 import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.math.BigDecimal.RoundingMode
 
 class CalculationRepositorySpec
   extends AnyFreeSpec
@@ -164,6 +165,25 @@ class CalculationRepositorySpec
       repository.totalSavingsAveragedBySession.futureValue mustEqual 0
       Future.traverse(Seq(a1, a2, b1, b2))(repository.save).futureValue
       repository.totalSavingsAveragedBySession.futureValue mustEqual 1650
+    }
+  }
+
+  ".averageSalary" - {
+
+    "must return the mean salary from all calculations" in {
+
+      val calculationsGen: Gen[List[Calculation]] = for {
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        calculations <- Gen.listOfN(numberOfCalculations, arbitraryCalculation.arbitrary)
+      } yield calculations
+
+      forAll(calculationsGen) { calculations =>
+        val expectedAverageSalary = if (calculations.isEmpty) 0 else (calculations.map(_.annualSalary).sum / calculations.length).setScale(2, RoundingMode.HALF_DOWN)
+        prepareDatabase()
+        repository.averageSalary.futureValue mustEqual 0
+        Future.traverse(calculations)(repository.save).futureValue
+        repository.averageSalary.futureValue mustEqual expectedAverageSalary
+      }
     }
   }
 }

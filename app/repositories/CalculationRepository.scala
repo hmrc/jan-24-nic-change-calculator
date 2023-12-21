@@ -26,6 +26,7 @@ import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.BigDecimal.RoundingMode
 
 @Singleton
 class CalculationRepository @Inject()(mongoComponent: MongoComponent)
@@ -36,7 +37,8 @@ extends PlayMongoRepository[Calculation](
   domainFormat   = Calculation.format,
   extraCodecs    = Seq(
     Codecs.playFormatCodec(DistinctSessionIds.format),
-    Codecs.playFormatCodec(TotalSavings.format)
+    Codecs.playFormatCodec(TotalSavings.format),
+    Codecs.playFormatCodec(AverageSalary.format)
   ),
   indexes        = Seq(
     IndexModel(
@@ -74,6 +76,11 @@ extends PlayMongoRepository[Calculation](
       group("$sessionId", avg("averageSavings", "$roundedSaving")),
       group(null, sum("totalSavings", "$averageSavings"))
     )).headOption().map(_.map(_.totalSavings).getOrElse(0))
+
+  def averageSalary: Future[BigDecimal] =
+    collection.aggregate[AverageSalary](Seq(
+      group(null, avg("averageSalary", "$annualSalary"))
+    )).headOption().map(_.map(_.averageSalary.setScale(2, RoundingMode.HALF_DOWN)).getOrElse(0))
 }
 
 final case class DistinctSessionIds(distinctSessionIds: Long)
@@ -86,4 +93,10 @@ final case class TotalSavings(totalSavings: BigDecimal)
 
 object TotalSavings {
   implicit lazy val format: Format[TotalSavings] = Json.format
+}
+
+final case class AverageSalary(averageSalary: BigDecimal)
+
+object AverageSalary {
+  implicit lazy val format: Format[AverageSalary] = Json.format
 }
