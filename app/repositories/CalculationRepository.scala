@@ -47,4 +47,7 @@ extends PlayMongoRepository[Calculation](
     collection.insertOne(calculation)
       .toFuture()
       .map(_ => Done)
+
+  def numberOfCalculations: Future[Long] =
+    collection.countDocuments().head()
 }

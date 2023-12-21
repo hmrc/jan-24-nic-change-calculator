@@ -17,15 +17,18 @@
 package repositories
 
 import models.Calculation
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.OptionValues
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.must.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import uk.gov.hmrc.crypto.Scrambled
 import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, DefaultPlayMongoRepositorySupport}
 
-import java.time.Instant
+import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class CalculationRepositorySpec
   extends AnyFreeSpec
@@ -34,7 +37,33 @@ class CalculationRepositorySpec
     with CleanMongoCollectionSupport
     with ScalaFutures
     with IntegrationPatience
-    with OptionValues {
+    with OptionValues
+    with ScalaCheckPropertyChecks {
+
+  private implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
+
+  private def datesBetween(min: LocalDate, max: LocalDate): Gen[Instant] = {
+
+    def toMillis(date: LocalDate): Long =
+      date.atStartOfDay.atZone(ZoneOffset.UTC).toInstant.toEpochMilli
+
+    Gen.choose(toMillis(min), toMillis(max)).map {
+      millis =>
+        Instant.ofEpochMilli(millis)
+    }
+  }
+
+  private implicit val arbitraryCalculation: Arbitrary[Calculation] =
+    Arbitrary {
+      for {
+        sessionId <- Gen.stringOf(Gen.alphaNumChar).map(Scrambled)
+        annualSalary <- Gen.chooseNum(1, 1000000)
+        year1EstimatedNic <- Gen.chooseNum(1, 10000)
+        year2EstimatedNic <- Gen.chooseNum(1, 10000)
+        roundedSaving <- Gen.chooseNum(1, 1000)
+        timestamp <- datesBetween(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 6, 1))
+      } yield Calculation(sessionId, annualSalary, year1EstimatedNic, year2EstimatedNic, roundedSaving, timestamp)
+    }
 
   protected override val repository = new CalculationRepository(mongoComponent)
 
@@ -58,6 +87,24 @@ class CalculationRepositorySpec
       val calculations = repository.collection.find().toFuture().futureValue
       calculations.size mustEqual 1
       calculations.head mustEqual calculation
+    }
+  }
+
+  ".numberOfCalculations" - {
+
+    "must return the number of calculations that have been performed so far" in {
+
+      val calculationsGen: Gen[List[Calculation]] = for {
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        calculations         <- Gen.listOfN(numberOfCalculations, arbitraryCalculation.arbitrary)
+      } yield calculations
+
+      forAll(calculationsGen) { calculations =>
+        prepareDatabase()
+        repository.numberOfCalculations.futureValue mustEqual 0
+        Future.traverse(calculations)(repository.save).futureValue
+        repository.numberOfCalculations.futureValue mustEqual calculations.length
+      }
     }
   }
 }
