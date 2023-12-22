@@ -16,14 +16,16 @@
 
 package workers
 
+import com.codahale.metrics.{MetricRegistry, Timer}
 import org.apache.pekko.actor.ActorSystem
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logging}
 import uk.gov.hmrc.mongo.metrix.MetricOrchestrator
 
+import java.time.{Clock, Duration}
 import javax.inject.{Inject, Singleton}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 @Singleton
@@ -31,20 +33,27 @@ class MetricOrchestratorWorker @Inject() (
                                            configuration: Configuration,
                                            lifecycle: ApplicationLifecycle,
                                            actorSystem: ActorSystem,
-                                           metricOrchestrator: MetricOrchestrator
+                                           metricOrchestrator: MetricOrchestrator,
+                                           metricRegistry: MetricRegistry,
+                                           clock: Clock
                                          )(implicit ec: ExecutionContext) extends Logging {
 
   private val scheduler = actorSystem.scheduler
   private val initialDelay: FiniteDuration = configuration.get[FiniteDuration]("workers.metric-orchestrator-worker.initial-delay")
   private val interval: FiniteDuration = configuration.get[FiniteDuration]("workers.metric-orchestrator-worker.interval")
+  private val metricUpdateTimer: Timer = metricRegistry.timer("metric-update.timer")
 
   logger.info("Starting metric orchestration worker")
 
   private val task = scheduler.scheduleAtFixedRate(initialDelay, interval) { () =>
     logger.info("Attempting metric refresh")
+    val start = clock.instant()
     metricOrchestrator.attemptMetricRefresh().onComplete {
-      case Success(_) => logger.info("Metrics refreshed")
-      case Failure(_) => logger.warn("Unable to refresh metrics")
+      case Success(_) =>
+        logger.info("Metrics refreshed")
+        metricUpdateTimer.update(Duration.between(start, clock.instant()))
+      case Failure(_) =>
+        logger.warn("Unable to refresh metrics")
     }
   }
 
