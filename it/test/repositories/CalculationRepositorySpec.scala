@@ -91,6 +91,34 @@ class CalculationRepositorySpec
     }
   }
 
+  ".lastCalculation" - {
+
+    "must return `None` when there are no calculations" in {
+      repository.lastCalculation.futureValue must not be (defined)
+    }
+
+    "must return the latest calculation when there are multiple calculations" in {
+
+      val timestamp = Instant.ofEpochSecond(1000)
+
+      val calc1 = Calculation(
+        sessionId = Scrambled("foo"),
+        annualSalary = 1.1,
+        year1EstimatedNic = 2.2,
+        year2EstimatedNic = 3.3,
+        roundedSaving = 4,
+        timestamp = timestamp
+      )
+
+      val calc2 = calc1.copy(sessionId = Scrambled("bar"), timestamp = Instant.ofEpochSecond(3000))
+      val calc3 = calc1.copy(sessionId = Scrambled("baz"), timestamp = Instant.ofEpochSecond(500))
+
+      Future.traverse(List(calc1, calc2, calc3))(repository.save).futureValue
+
+      repository.lastCalculation.futureValue.value mustEqual calc2
+    }
+  }
+
   ".numberOfCalculations" - {
 
     "must return the number of calculations that have been performed so far" in {
