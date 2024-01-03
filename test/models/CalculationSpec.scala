@@ -20,6 +20,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.must.Matchers
 import play.api.libs.json.{JsSuccess, Json}
 import uk.gov.hmrc.crypto.Scrambled
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
 import java.time.Instant
 
@@ -28,6 +29,8 @@ class CalculationSpec extends AnyFreeSpec with Matchers {
   "Calculation" - {
 
     "must serialise and deserialise to/from json" in {
+
+      import MongoJavatimeFormats.Implicits._
 
       val timestamp = Instant.ofEpochSecond(1)
 
@@ -48,7 +51,7 @@ class CalculationSpec extends AnyFreeSpec with Matchers {
         "year1EstimatedNic" -> 2.2,
         "year2EstimatedNic" -> 3.3,
         "roundedSaving" -> 4,
-        "timestamp" -> "1970-01-01T00:00:01Z"
+        "timestamp" -> timestamp
       )
 
       val result = json.validate[Calculation]
