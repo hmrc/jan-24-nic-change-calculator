@@ -32,7 +32,7 @@ final case class Calculation(
                               timestamp: Instant
                             )
 
-object Calculation extends MongoJavatimeFormats {
+object Calculation extends MongoJavatimeFormats.Implicits {
 
   private lazy val reads: Reads[Calculation] = (
     (__ \ "sessionId").read[String].map(Scrambled) and

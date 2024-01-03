@@ -19,13 +19,11 @@ package repositories
 import models.{Calculation, Done}
 import org.mongodb.scala.model.Accumulators.{avg, sum}
 import org.mongodb.scala.model.Aggregates._
-import org.mongodb.scala.model.Sorts.{ascending, orderBy}
 import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes, Sorts}
 import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
-import java.time.Instant
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
