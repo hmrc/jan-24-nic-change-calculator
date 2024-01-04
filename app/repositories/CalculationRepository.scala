@@ -71,12 +71,12 @@ extends PlayMongoRepository[Calculation](
       count("distinctSessionIds"))
     ).headOption().map(_.map(_.distinctSessionIds).getOrElse(0))
 
-  def totalSavings: Future[Long] =
+  def totalSavings: Future[BigDecimal] =
     collection.aggregate[TotalSavings](Seq(
       group(null, sum("totalSavings", "$roundedSaving"))
     )).headOption().map(_.map(_.totalSavings).getOrElse(0))
 
-  def totalSavingsAveragedBySession: Future[Long] =
+  def totalSavingsAveragedBySession: Future[BigDecimal] =
     collection.aggregate[TotalSavings](Seq(
       group("$sessionId", avg("averageSavings", "$roundedSaving")),
       group(null, sum("totalSavings", "$averageSavings"))
@@ -94,7 +94,7 @@ object DistinctSessionIds {
   implicit lazy val format: Format[DistinctSessionIds] = Json.format
 }
 
-final case class TotalSavings(totalSavings: Long)
+final case class TotalSavings(totalSavings: BigDecimal)
 
 object TotalSavings {
   implicit lazy val format: Format[TotalSavings] = Json.format
