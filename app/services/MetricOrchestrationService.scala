@@ -53,8 +53,8 @@ class MetricOrchestrationService @Inject() (
           case Success(_) =>
             logger.info("Metrics refreshed")
             metricUpdateTimer.update(Duration.between(start, clock.instant()))
-          case Failure(_) =>
-            logger.warn("Unable to refresh metrics")
+          case Failure(e) =>
+            logger.warn("Unable to refresh metrics", e)
         }
         result
       }.as(Done).getOrElse(Done)
