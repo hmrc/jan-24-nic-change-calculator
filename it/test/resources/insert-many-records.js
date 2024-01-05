@@ -1,4 +1,4 @@
-db = connect("mongodb://localhost/jan-24-nic-change-calculator");
+// db = connect("mongodb://localhost/jan-24-nic-change-calculator");
 
 function randomBetween(min, max) {
     return (Math.random() * (max - min)) + min;
@@ -6,10 +6,10 @@ function randomBetween(min, max) {
 
 function randomCalculation(sessionId) {
 
-    const annualSalary = randomBetween(5000, 300000).toFixed(2);
-    const year1EstimatedNic = randomBetween(100, 1000).toFixed(2);
-    const year2EstimatedNic = (year1EstimatedNic * 0.9).toFixed(2);
-    const roundedSaving = (year1EstimatedNic - year2EstimatedNic).toFixed(2);
+    const annualSalary = randomBetween(5000, 300000);
+    const year1EstimatedNic = randomBetween(100, 1000);
+    const year2EstimatedNic = (year1EstimatedNic * 0.9);
+    const roundedSaving = Math.floor((year1EstimatedNic - year2EstimatedNic));
 
     return {
         sessionId: sessionId,
@@ -48,6 +48,6 @@ function randomCalculations(number) {
     return calculations;
 }
 
-const calculations = randomCalculations(10000);
+const calculations = randomCalculations(10);
 
 db.calculations.insertMany(calculations);
