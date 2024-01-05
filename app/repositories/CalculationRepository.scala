@@ -17,9 +17,10 @@
 package repositories
 
 import models.{Calculation, Done}
+import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.Accumulators.{avg, sum}
 import org.mongodb.scala.model.Aggregates._
-import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Indexes, Sorts}
+import org.mongodb.scala.model._
 import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
@@ -63,36 +64,41 @@ extends PlayMongoRepository[Calculation](
       .limit(1)
       .headOption()
 
-  def numberOfCalculations(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] = {
+  def numberOfCalculations(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] =
+    collection.countDocuments(timestampFilter(from, to)).head()
 
-    val fromFilter = from.map(Filters.gte("timestamp", _))
-    val toFilter = to.map(Filters.lt("timestamp", _))
-    val filters = (for (from <- fromFilter; to <- toFilter) yield Filters.and(from, to)) orElse fromFilter orElse toFilter
-
-    collection.countDocuments(filters.getOrElse(Filters.empty)).head()
-  }
-
-  def numberOfUniqueSessions: Future[Long] =
+  def numberOfUniqueSessions(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] =
     collection.aggregate[DistinctSessionIds](Seq(
+      `match`(timestampFilter(from, to)),
       group("$sessionId"),
       count("distinctSessionIds"))
     ).headOption().map(_.map(_.distinctSessionIds).getOrElse(0))
 
-  def totalSavings: Future[BigDecimal] =
+  def totalSavings(from: Option[Instant] = None, to: Option[Instant] = None): Future[BigDecimal] =
     collection.aggregate[TotalSavings](Seq(
+      `match`(timestampFilter(from, to)),
       group(null, sum("totalSavings", "$roundedSaving"))
     )).headOption().map(_.map(_.totalSavings).getOrElse(0))
 
-  def totalSavingsAveragedBySession: Future[BigDecimal] =
+  def totalSavingsAveragedBySession(from: Option[Instant] = None, to: Option[Instant] = None): Future[BigDecimal] =
     collection.aggregate[TotalSavings](Seq(
+      `match`(timestampFilter(from, to)),
       group("$sessionId", avg("averageSavings", "$roundedSaving")),
       group(null, sum("totalSavings", "$averageSavings"))
     )).headOption().map(_.map(_.totalSavings).getOrElse(0))
 
-  def averageSalary: Future[Long] =
+  def averageSalary(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] =
     collection.aggregate[AverageSalary](Seq(
+      `match`(timestampFilter(from, to)),
       group(null, avg("averageSalary", "$annualSalary"))
     )).headOption().map(_.map(_.averageSalary.toLong).getOrElse(0))
+
+  private def timestampFilter(from: Option[Instant] = None, to: Option[Instant] = None): Bson = {
+    val fromFilter = from.map(Filters.gte("timestamp", _))
+    val toFilter = to.map(Filters.lt("timestamp", _))
+    val filters = (for (from <- fromFilter; to <- toFilter) yield Filters.and(from, to)) orElse fromFilter orElse toFilter
+    filters.getOrElse(Filters.empty())
+  }
 }
 
 final case class DistinctSessionIds(distinctSessionIds: Long)
