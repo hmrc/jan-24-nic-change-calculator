@@ -17,16 +17,20 @@
 package controllers
 
 import models.CalculationRequest
-import play.api.mvc.{Action, ControllerComponents}
+import play.api.libs.json.Json
+import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import services.CalculationService
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 import uk.gov.hmrc.play.http.HeaderCarrierConverter
 
+import java.time.Instant
 import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 
-class CalculationController @Inject()(cc: ControllerComponents, calculationService: CalculationService)(implicit ec: ExecutionContext)
-  extends BackendController(cc) {
+class CalculationController @Inject() (
+                                        cc: ControllerComponents,
+                                        calculationService: CalculationService
+                                      )(implicit ec: ExecutionContext) extends BackendController(cc) {
 
   def save(): Action[CalculationRequest] = Action(parse.tolerantJson[CalculationRequest]).async {
     implicit request =>
@@ -40,4 +44,11 @@ class CalculationController @Inject()(cc: ControllerComponents, calculationServi
         Future.successful(BadRequest)
       }
   }
+
+  def summary(from: Option[Instant], to: Option[Instant]): Action[AnyContent] =
+    Action.async {
+      calculationService.summary(from, to).map { summary =>
+        Ok(Json.toJson(summary))
+      }
+    }
 }

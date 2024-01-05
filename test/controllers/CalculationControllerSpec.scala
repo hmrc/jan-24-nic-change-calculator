@@ -16,7 +16,7 @@
 
 package controllers
 
-import models.{CalculationRequest, Done}
+import models.{CalculationRequest, CalculationSummaryData, Done}
 import org.mockito.ArgumentMatchers.{any, eq => eqTo}
 import org.mockito.Mockito.{never, times, verify, when}
 import org.scalatest.OptionValues
@@ -32,6 +32,7 @@ import play.api.test.Helpers._
 import services.CalculationService
 import uk.gov.hmrc.http.HeaderNames
 
+import java.time.{LocalDate, ZoneOffset}
 import scala.concurrent.Future
 
 class CalculationControllerSpec
@@ -94,6 +95,53 @@ class CalculationControllerSpec
         status(result) mustEqual BAD_REQUEST
         verify(mockCalculationService, never()).save(any(), any())
       }
+    }
+  }
+
+  "summary" - {
+
+    val mockCalculationService = mock[CalculationService]
+
+    val application =
+      new GuiceApplicationBuilder()
+        .overrides(bind[CalculationService].toInstance(mockCalculationService))
+        .build()
+
+    val from = LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+    val to = LocalDate.of(2025, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+
+    val summaryData = CalculationSummaryData(
+      from = Some(from),
+      to = Some(to),
+      numberOfCalculations = 1000,
+      numberOfUniqueSessions = 500,
+      totalSavings = 10000,
+      totalSavingsAveragedBySession = 50,
+      averageSalary = 15000
+    )
+
+    "must return OK with CalculationSummaryData" in running(application) {
+
+      when(mockCalculationService.summary(any(), any())).thenReturn(Future.successful(summaryData))
+
+      val request =
+        FakeRequest(GET, routes.CalculationController.summary(from = Some(from), to = Some(to)).url)
+
+      val result = route(application, request).value
+
+      status(result) mustEqual OK
+
+      verify(mockCalculationService).summary(from = eqTo(Some(from)), to = eqTo(Some(to)))
+    }
+
+    "must fail when CalculationService fails" in running(application) {
+
+      when(mockCalculationService.summary(any(), any())).thenReturn(Future.failed(new RuntimeException()))
+
+      val request =
+        FakeRequest(GET, routes.CalculationController.summary(from = Some(from), to = Some(to)).url)
+
+      route(application, request).value.failed.futureValue
     }
   }
 }
