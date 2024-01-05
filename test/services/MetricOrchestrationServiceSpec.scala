@@ -57,7 +57,7 @@ class MetricOrchestrationServiceSpec extends AnyFreeSpec with Matchers with Scal
 
   override def beforeEach(): Unit = {
     super.beforeEach()
-    Mockito.reset(metricOrchestrator, calculationRepository)
+    Mockito.reset[Any](metricOrchestrator, calculationRepository)
   }
 
   ".updateMetrics" - {

@@ -10,6 +10,10 @@ lazy val microservice = Project("jan-24-nic-change-calculator", file("."))
     // https://www.scala-lang.org/2021/01/12/configuring-and-suppressing-warnings.html
     // suppress warnings in generated routes files
     scalacOptions += "-Wconf:src=routes/.*:s",
+    routesImport ++= Seq(
+      "controllers._",
+      "java.time.Instant"
+    )
   )
   .settings(resolvers += Resolver.jcenterRepo)
   .settings(CodeCoverageSettings.settings: _*)
