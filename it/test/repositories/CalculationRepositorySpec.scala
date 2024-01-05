@@ -184,14 +184,14 @@ class CalculationRepositorySpec
     "must return the total amount of savings where savings are grouped and averaged on sessionId" in {
 
       val a1 = arbitrary[Calculation].sample.value.copy(sessionId = Scrambled("a"), roundedSaving = 100)
-      val a2 = a1.copy(roundedSaving = 200)
+      val a2 = a1.copy(roundedSaving = 201)
 
       val b1 = arbitrary[Calculation].sample.value.copy(sessionId = Scrambled("b"), roundedSaving = 1000)
       val b2 = b1.copy(roundedSaving = 2000)
 
       repository.totalSavingsAveragedBySession.futureValue mustEqual 0
       Future.traverse(Seq(a1, a2, b1, b2))(repository.save).futureValue
-      repository.totalSavingsAveragedBySession.futureValue mustEqual 1650
+      repository.totalSavingsAveragedBySession.futureValue mustEqual 1650.5
     }
   }
 
