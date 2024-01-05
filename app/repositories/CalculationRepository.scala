@@ -19,11 +19,12 @@ package repositories
 import models.{Calculation, Done}
 import org.mongodb.scala.model.Accumulators.{avg, sum}
 import org.mongodb.scala.model.Aggregates._
-import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes, Sorts}
+import org.mongodb.scala.model.{Filters, IndexModel, IndexOptions, Indexes, Sorts}
 import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
+import java.time.Instant
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -62,8 +63,14 @@ extends PlayMongoRepository[Calculation](
       .limit(1)
       .headOption()
 
-  def numberOfCalculations: Future[Long] =
-    collection.countDocuments().head()
+  def numberOfCalculations(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] = {
+
+    val fromFilter = from.map(Filters.gte("timestamp", _))
+    val toFilter = to.map(Filters.lt("timestamp", _))
+    val filters = (for (from <- fromFilter; to <- toFilter) yield Filters.and(from, to)) orElse fromFilter orElse toFilter
+
+    collection.countDocuments(filters.getOrElse(Filters.empty)).head()
+  }
 
   def numberOfUniqueSessions: Future[Long] =
     collection.aggregate[DistinctSessionIds](Seq(
