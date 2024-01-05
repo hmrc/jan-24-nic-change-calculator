@@ -58,7 +58,7 @@ class MetricOrchestratorProvider @Inject() (
   private val source = new MetricSource {
     override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
       for {
-        numberOfCalculations <- calculationRepository.numberOfCalculations
+        numberOfCalculations <- calculationRepository.numberOfCalculations()
         numberOfUniqueSessions <- calculationRepository.numberOfUniqueSessions
         totalSavings <- calculationRepository.totalSavings
         totalSavingsAveragedBySession <- calculationRepository.totalSavingsAveragedBySession

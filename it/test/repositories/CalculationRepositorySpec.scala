@@ -27,7 +27,9 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import uk.gov.hmrc.crypto.Scrambled
 import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, DefaultPlayMongoRepositorySupport}
 
-import java.time.{Instant, LocalDate, ZoneOffset}
+import java.time.temporal.{ChronoUnit, TemporalAmount, TemporalUnit}
+import java.time.{Instant, LocalDate, LocalDateTime, Period, ZoneOffset}
+import scala.collection.immutable.List
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -43,28 +45,26 @@ class CalculationRepositorySpec
 
   private implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
 
-  private def datesBetween(min: LocalDate, max: LocalDate): Gen[Instant] = {
-
-    def toMillis(date: LocalDate): Long =
-      date.atStartOfDay.atZone(ZoneOffset.UTC).toInstant.toEpochMilli
-
-    Gen.choose(toMillis(min), toMillis(max)).map {
+  private def datesBetween(min: Instant, max: Instant): Gen[Instant] =
+    Gen.choose(min.toEpochMilli, max.toEpochMilli).map {
       millis =>
         Instant.ofEpochMilli(millis)
     }
-  }
+
+  private def randomCalculation(from: Option[Instant] = None, to: Option[Instant] = None): Gen[Calculation] =
+    for {
+      sessionId <- Gen.stringOf(Gen.alphaNumChar).map(Scrambled)
+      annualSalary <- Gen.chooseNum(1, 1000000)
+      year1EstimatedNic <- Gen.chooseNum(1, 10000)
+      year2EstimatedNic <- Gen.chooseNum(1, 10000)
+      roundedSaving <- Gen.chooseNum(1, 1000)
+      fromGen = from.getOrElse(LocalDate.of(2024, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC))
+      toGen = to.getOrElse(LocalDateTime.ofInstant(fromGen, ZoneOffset.UTC).plus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC))
+      timestamp <- datesBetween(fromGen, toGen)
+    } yield Calculation(sessionId, annualSalary, year1EstimatedNic, year2EstimatedNic, roundedSaving, timestamp)
 
   private implicit val arbitraryCalculation: Arbitrary[Calculation] =
-    Arbitrary {
-      for {
-        sessionId <- Gen.stringOf(Gen.alphaNumChar).map(Scrambled)
-        annualSalary <- Gen.chooseNum(1, 1000000)
-        year1EstimatedNic <- Gen.chooseNum(1, 10000)
-        year2EstimatedNic <- Gen.chooseNum(1, 10000)
-        roundedSaving <- Gen.chooseNum(1, 1000)
-        timestamp <- datesBetween(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 6, 1))
-      } yield Calculation(sessionId, annualSalary, year1EstimatedNic, year2EstimatedNic, roundedSaving, timestamp)
-    }
+    Arbitrary(randomCalculation(None, None))
 
   protected override val repository = new CalculationRepository(mongoComponent)
 
@@ -130,9 +130,82 @@ class CalculationRepositorySpec
 
       forAll(calculationsGen) { calculations =>
         prepareDatabase()
-        repository.numberOfCalculations.futureValue mustEqual 0
+        repository.numberOfCalculations().futureValue mustEqual 0
         Future.traverse(calculations)(repository.save).futureValue
-        repository.numberOfCalculations.futureValue mustEqual calculations.length
+        repository.numberOfCalculations().futureValue mustEqual calculations.length
+      }
+    }
+
+    "must ignore calculations before `from`" in {
+
+      val from = datesBetween(
+        LocalDate.of(2023, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC),
+        LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+      )
+
+      val calculationsGen: Gen[(Instant, List[Calculation], List[Calculation])] = for {
+        from <- from
+        before = LocalDateTime.ofInstant(from, ZoneOffset.UTC).minus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC)
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        ignoredCalculations <- Gen.listOf(randomCalculation(from = Some(before), to = Some(from)))
+        calculations <- Gen.listOfN(numberOfCalculations, randomCalculation(from = Some(from)))
+      } yield (from, ignoredCalculations, calculations)
+
+      forAll(calculationsGen) { case (from, ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculations(from = Some(from)).futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculations(from = Some(from)).futureValue mustEqual calculations.length
+      }
+    }
+
+    "must ignore calculations after `to`" in {
+
+      val from = datesBetween(
+        LocalDate.of(2023, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC),
+        LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+      )
+
+      val calculationsGen: Gen[(Instant, List[Calculation], List[Calculation])] = for {
+        from <- from
+        to = LocalDateTime.ofInstant(from, ZoneOffset.UTC).plus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC)
+        after = LocalDateTime.ofInstant(to, ZoneOffset.UTC).plus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC)
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        ignoredCalculations <- Gen.listOf(randomCalculation(from = Some(to), to = Some(after)))
+        calculations <- Gen.listOfN(numberOfCalculations, randomCalculation(from = Some(from), to = Some(to)))
+      } yield (to, ignoredCalculations, calculations)
+
+      forAll(calculationsGen) { case (to, ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculations(to = Some(to)).futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculations(to = Some(to)).futureValue mustEqual calculations.length
+      }
+    }
+
+    "must only report calculations between `from` and `to`" in {
+
+      val from = datesBetween(
+        LocalDate.of(2023, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC),
+        LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+      )
+
+      val calculationsGen: Gen[(Instant, Instant, List[Calculation], List[Calculation])] = for {
+        from <- from
+        before = LocalDateTime.ofInstant(from, ZoneOffset.UTC).minus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC)
+        to = LocalDateTime.ofInstant(from, ZoneOffset.UTC).plus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC)
+        after = LocalDateTime.ofInstant(to, ZoneOffset.UTC).plus(Period.ofMonths(6)).toInstant(ZoneOffset.UTC)
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        beforeCalculations <- Gen.listOf(randomCalculation(from = Some(before), to = Some(from)))
+        afterCalculations <- Gen.listOf(randomCalculation(from = Some(to), to = Some(after)))
+        calculations <- Gen.listOfN(numberOfCalculations, randomCalculation(from = Some(from), to = Some(to)))
+      } yield (from, to, beforeCalculations ++ afterCalculations, calculations)
+
+      forAll(calculationsGen) { case (from, to, ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculations(from = Some(from), to = Some(to)).futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculations(from = Some(from), to = Some(to)).futureValue mustEqual calculations.length
       }
     }
   }
