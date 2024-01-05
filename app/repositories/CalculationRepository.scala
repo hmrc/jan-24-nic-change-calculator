@@ -47,6 +47,10 @@ extends PlayMongoRepository[Calculation](
       IndexOptions()
         .name("timestampIdx")
         .unique(false)
+    ),
+    IndexModel(
+      Indexes.ascending("roundedSaving"),
+      IndexOptions().name("roundedSavingIdx")
     )
   )
 ) {
@@ -92,6 +96,14 @@ extends PlayMongoRepository[Calculation](
       `match`(timestampFilter(from, to)),
       group(null, avg("averageSalary", "$annualSalary"))
     )).headOption().map(_.map(_.averageSalary.toLong).getOrElse(0))
+
+  def numberOfCalculationsWithNoSavings(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] =
+    collection.countDocuments(
+      Filters.and(
+        timestampFilter(from, to),
+        Filters.eq("roundedSaving", 0)
+      )
+    ).head()
 
   private def timestampFilter(from: Option[Instant] = None, to: Option[Instant] = None): Bson = {
     val fromFilter = from.map(Filters.gte("timestamp", _))

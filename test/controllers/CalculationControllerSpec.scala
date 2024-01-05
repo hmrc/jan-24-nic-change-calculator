@@ -115,6 +115,7 @@ class CalculationControllerSpec
       to = Some(to),
       numberOfCalculations = 1000,
       numberOfUniqueSessions = 500,
+      numberOfCalculationsWithNoSavings = 300,
       totalSavings = 10000,
       totalSavingsAveragedBySession = 50,
       averageSalary = 15000
