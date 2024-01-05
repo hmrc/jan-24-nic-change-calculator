@@ -53,6 +53,7 @@ class CalculationService @Inject()(
     for {
       numberOfCalculations <- repository.numberOfCalculations(from, to)
       numberOfUniqueSessions <- repository.numberOfUniqueSessions(from, to)
+      numberOfCalculationsWithNoSavings <- repository.numberOfCalculationsWithNoSavings(from, to)
       totalSavings <- repository.totalSavings(from, to)
       totalSavingsAveragedBySession <- repository.totalSavingsAveragedBySession(from, to)
       averageSalary <- repository.averageSalary(from, to)
@@ -61,6 +62,7 @@ class CalculationService @Inject()(
       to = to,
       numberOfCalculations = numberOfCalculations,
       numberOfUniqueSessions = numberOfUniqueSessions,
+      numberOfCalculationsWithNoSavings = numberOfCalculationsWithNoSavings,
       totalSavings = totalSavings,
       totalSavingsAveragedBySession = totalSavingsAveragedBySession,
       averageSalary = averageSalary
