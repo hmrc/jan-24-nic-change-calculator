@@ -59,10 +59,10 @@ class MetricOrchestratorProvider @Inject() (
     override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
       for {
         numberOfCalculations <- calculationRepository.numberOfCalculations()
-        numberOfUniqueSessions <- calculationRepository.numberOfUniqueSessions
-        totalSavings <- calculationRepository.totalSavings
-        totalSavingsAveragedBySession <- calculationRepository.totalSavingsAveragedBySession
-        averageSalary <- calculationRepository.averageSalary
+        numberOfUniqueSessions <- calculationRepository.numberOfUniqueSessions()
+        totalSavings <- calculationRepository.totalSavings()
+        totalSavingsAveragedBySession <- calculationRepository.totalSavingsAveragedBySession()
+        averageSalary <- calculationRepository.averageSalary()
       } yield Map(
         "numberOfCalculations" -> numberOfCalculations.toInt,
         "numberOfUniqueSessions" -> numberOfUniqueSessions.toInt,
