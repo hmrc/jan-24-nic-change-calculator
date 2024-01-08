@@ -34,18 +34,24 @@ class MetricOrchestratorWorker @Inject() (
                                          )(implicit ec: ExecutionContext) extends Logging {
 
   private val scheduler = actorSystem.scheduler
+  private val enabled: Boolean = configuration.get[Boolean]("workers.metric-orchestrator-worker.enabled")
   private val initialDelay: FiniteDuration = configuration.get[FiniteDuration]("workers.metric-orchestrator-worker.initial-delay")
   private val interval: FiniteDuration = configuration.get[FiniteDuration]("workers.metric-orchestrator-worker.interval")
 
-  logger.info("Starting metric orchestration worker")
+  if (enabled) {
 
-  private val task = scheduler.scheduleAtFixedRate(initialDelay, interval) { () =>
-    metricOrchestrationService.updateMetrics()
-  }
+    logger.info("Starting metric orchestration worker")
 
-  lifecycle.addStopHook { () =>
-    logger.info("Stopping metric orchestration worker")
-    task.cancel()
-    Future.unit
+    val task = scheduler.scheduleAtFixedRate(initialDelay, interval) { () =>
+      metricOrchestrationService.updateMetrics()
+    }
+
+    lifecycle.addStopHook { () =>
+      logger.info("Stopping metric orchestration worker")
+      task.cancel()
+      Future.unit
+    }
+  } else {
+    logger.info("Metric orchestration worker is disabled")
   }
 }
