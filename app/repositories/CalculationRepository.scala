@@ -51,6 +51,10 @@ extends PlayMongoRepository[Calculation](
     IndexModel(
       Indexes.ascending("roundedSaving"),
       IndexOptions().name("roundedSavingIdx")
+    ),
+    IndexModel(
+      Indexes.ascending("annualSalary"),
+      IndexOptions().name("annualSalaryIdx")
     )
   )
 ) {
@@ -102,6 +106,15 @@ extends PlayMongoRepository[Calculation](
       Filters.and(
         timestampFilter(from, to),
         Filters.eq("roundedSaving", 0)
+      )
+    ).head()
+
+  def numberOfCalculationsWithMinimalSavings(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] =
+    collection.countDocuments(
+      Filters.and(
+        timestampFilter(from, to),
+        Filters.gt("annualSalary", 12570.2),
+        Filters.lt("annualSalary", 12595.3)
       )
     ).head()
 
