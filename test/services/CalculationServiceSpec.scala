@@ -66,8 +66,8 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       val salary = BigDecimal(1)
       val year1Nic = BigDecimal(2.2)
       val year2Nic = BigDecimal(3.3)
-      val saving = BigDecimal(4)
-      val calculationRequest = CalculationRequest(salary, year1Nic, year2Nic, saving)
+      val roundedSaving = BigDecimal(4)
+      val calculationRequest = CalculationRequest(salary, year1Nic, year2Nic, roundedSaving, None)
       val captor = ArgumentCaptor.forClass(classOf[Calculation])
 
       service.save(sessionId, calculationRequest).futureValue
@@ -77,7 +77,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       calculation.annualSalary mustEqual salary
       calculation.year1EstimatedNic mustEqual year1Nic
       calculation.year2EstimatedNic mustEqual year2Nic
-      calculation.roundedSaving mustEqual saving
+      calculation.roundedSaving mustEqual roundedSaving
       calculation.timestamp mustEqual fixedInstant
 
     }
@@ -103,6 +103,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       numberOfCalculations = 1000,
       numberOfUniqueSessions = 500,
       numberOfCalculationsWithNoSavings = 300,
+      numberOfCalculationsWithMinimalSavings =100,
       totalSavings = 10000,
       totalSavingsAveragedBySession = 50,
       averageSalary = 15000
@@ -113,6 +114,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       when(mockRepository.numberOfCalculations(any(), any())).thenReturn(Future.successful(1000))
       when(mockRepository.numberOfUniqueSessions(any(), any())).thenReturn(Future.successful(500))
       when(mockRepository.numberOfCalculationsWithNoSavings(any(), any())).thenReturn(Future.successful(300))
+      when(mockRepository.numberOfCalculationsWithMinimalSavings(any(), any())).thenReturn(Future.successful(100))
       when(mockRepository.totalSavings(any(), any())).thenReturn(Future.successful(10000))
       when(mockRepository.totalSavingsAveragedBySession(any(), any())).thenReturn(Future.successful(50))
       when(mockRepository.averageSalary(any(), any())).thenReturn(Future.successful(15000))
@@ -122,6 +124,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       verify(mockRepository).numberOfCalculations(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository).numberOfUniqueSessions(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository).numberOfCalculationsWithNoSavings(eqTo(Some(from)), eqTo(Some(to)))
+      verify(mockRepository).numberOfCalculationsWithMinimalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository).totalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository).totalSavingsAveragedBySession(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository).averageSalary(eqTo(Some(from)), eqTo(Some(to)))
@@ -135,6 +138,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
 
       verify(mockRepository, never()).numberOfUniqueSessions(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).numberOfCalculationsWithNoSavings(eqTo(Some(from)), eqTo(Some(to)))
+      verify(mockRepository, never()).numberOfCalculationsWithMinimalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).totalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).totalSavingsAveragedBySession(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).averageSalary(eqTo(Some(from)), eqTo(Some(to)))
@@ -148,6 +152,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       service.summary(Some(from), Some(to)).failed.futureValue
 
       verify(mockRepository, never()).numberOfCalculationsWithNoSavings(eqTo(Some(from)), eqTo(Some(to)))
+      verify(mockRepository, never()).numberOfCalculationsWithMinimalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).totalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).totalSavingsAveragedBySession(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).averageSalary(eqTo(Some(from)), eqTo(Some(to)))
@@ -161,6 +166,21 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
 
       service.summary(Some(from), Some(to)).failed.futureValue
 
+      verify(mockRepository, never()).numberOfCalculationsWithMinimalSavings(eqTo(Some(from)), eqTo(Some(to)))
+      verify(mockRepository, never()).totalSavings(eqTo(Some(from)), eqTo(Some(to)))
+      verify(mockRepository, never()).totalSavingsAveragedBySession(eqTo(Some(from)), eqTo(Some(to)))
+      verify(mockRepository, never()).averageSalary(eqTo(Some(from)), eqTo(Some(to)))
+    }
+
+    "must fail when the repository fails to return the number of calculations with minimal savings" in {
+
+      when(mockRepository.numberOfCalculations(any(), any())).thenReturn(Future.successful(1000))
+      when(mockRepository.numberOfUniqueSessions(any(), any())).thenReturn(Future.successful(500))
+      when(mockRepository.numberOfCalculationsWithNoSavings(any(), any())).thenReturn(Future.successful(300))
+      when(mockRepository.numberOfCalculationsWithMinimalSavings(any(), any())).thenReturn(Future.failed(new RuntimeException()))
+
+      service.summary(Some(from), Some(to)).failed.futureValue
+
       verify(mockRepository, never()).totalSavings(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).totalSavingsAveragedBySession(eqTo(Some(from)), eqTo(Some(to)))
       verify(mockRepository, never()).averageSalary(eqTo(Some(from)), eqTo(Some(to)))
@@ -171,6 +191,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       when(mockRepository.numberOfCalculations(any(), any())).thenReturn(Future.successful(1000))
       when(mockRepository.numberOfUniqueSessions(any(), any())).thenReturn(Future.successful(500))
       when(mockRepository.numberOfCalculationsWithNoSavings(any(), any())).thenReturn(Future.successful(300))
+      when(mockRepository.numberOfCalculationsWithMinimalSavings(any(), any())).thenReturn(Future.successful(100))
       when(mockRepository.totalSavings(any(), any())).thenReturn(Future.failed(new RuntimeException()))
 
       service.summary(Some(from), Some(to)).failed.futureValue
@@ -184,6 +205,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       when(mockRepository.numberOfCalculations(any(), any())).thenReturn(Future.successful(1000))
       when(mockRepository.numberOfUniqueSessions(any(), any())).thenReturn(Future.successful(500))
       when(mockRepository.numberOfCalculationsWithNoSavings(any(), any())).thenReturn(Future.successful(300))
+      when(mockRepository.numberOfCalculationsWithMinimalSavings(any(), any())).thenReturn(Future.successful(100))
       when(mockRepository.totalSavings(any(), any())).thenReturn(Future.successful(10000))
       when(mockRepository.totalSavingsAveragedBySession(any(), any())).thenReturn(Future.failed(new RuntimeException()))
 
@@ -197,6 +219,7 @@ class CalculationServiceSpec extends AnyFreeSpec with Matchers with MockitoSugar
       when(mockRepository.numberOfCalculations(any(), any())).thenReturn(Future.successful(1000))
       when(mockRepository.numberOfUniqueSessions(any(), any())).thenReturn(Future.successful(500))
       when(mockRepository.numberOfCalculationsWithNoSavings(any(), any())).thenReturn(Future.successful(300))
+      when(mockRepository.numberOfCalculationsWithMinimalSavings(any(), any())).thenReturn(Future.successful(100))
       when(mockRepository.totalSavings(any(), any())).thenReturn(Future.successful(10000))
       when(mockRepository.totalSavingsAveragedBySession(any(), any())).thenReturn(Future.successful(50))
       when(mockRepository.averageSalary(any(), any())).thenReturn(Future.failed(new RuntimeException()))

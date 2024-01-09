@@ -105,6 +105,15 @@ extends PlayMongoRepository[Calculation](
       )
     ).head()
 
+  def numberOfCalculationsWithMinimalSavings(from: Option[Instant] = None, to: Option[Instant] = None): Future[Long] =
+    collection.countDocuments(
+      Filters.and(
+        timestampFilter(from, to),
+        Filters.eq("roundedSaving", 0),
+        Filters.gt("saving", 0)
+      )
+    ).head()
+
   private def timestampFilter(from: Option[Instant] = None, to: Option[Instant] = None): Bson = {
     val fromFilter = from.map(Filters.gte("timestamp", _))
     val toFilter = to.map(Filters.lt("timestamp", _))

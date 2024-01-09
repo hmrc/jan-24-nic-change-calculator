@@ -28,7 +28,6 @@ import uk.gov.hmrc.crypto.Scrambled
 import uk.gov.hmrc.mongo.test.{CleanMongoCollectionSupport, DefaultPlayMongoRepositorySupport}
 
 import java.time._
-import scala.collection.immutable.List
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -57,10 +56,11 @@ class CalculationRepositorySpec
       year1EstimatedNic <- Gen.chooseNum(1, 10000)
       year2EstimatedNic <- Gen.chooseNum(1, 10000)
       roundedSaving <- Gen.chooseNum(1, 1000)
+      saving <- Gen.option(Gen.chooseNum(1, 1000))
       fromGen = from.getOrElse(LocalDate.of(2024, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC))
       toGen = to.getOrElse(fromGen + Period.ofMonths(6))
       timestamp <- datesBetween(fromGen, toGen)
-    } yield Calculation(sessionId, annualSalary, year1EstimatedNic, year2EstimatedNic, roundedSaving, timestamp)
+    } yield Calculation(sessionId, annualSalary, year1EstimatedNic, year2EstimatedNic, roundedSaving, saving.map(BigDecimal(_)), timestamp)
 
   private implicit val arbitraryCalculation: Arbitrary[Calculation] =
     Arbitrary(randomCalculation(None, None))
@@ -79,6 +79,7 @@ class CalculationRepositorySpec
         year1EstimatedNic = 2.2,
         year2EstimatedNic = 3.3,
         roundedSaving = 4,
+        saving = Some(4.5),
         timestamp = timestamp
       )
 
@@ -106,6 +107,7 @@ class CalculationRepositorySpec
         year1EstimatedNic = 2.2,
         year2EstimatedNic = 3.3,
         roundedSaving = 4,
+        saving = Some(4.5),
         timestamp = timestamp
       )
 
@@ -648,6 +650,113 @@ class CalculationRepositorySpec
         repository.numberOfCalculationsWithNoSavings(from = Some(from), to = Some(to)).futureValue mustEqual 0
         Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
         repository.numberOfCalculationsWithNoSavings(from = Some(from), to = Some(to)).futureValue mustEqual calculations.length
+      }
+    }
+  }
+
+  ".numberOfCalculationsWithMinimalSavings" - {
+
+    "must return a count of the calculations with minimal savings" in {
+
+      val calculationsGen: Gen[(List[Calculation], List[Calculation])] = for {
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        ignoredCalculations <- Gen.listOfN(numberOfCalculations, arbitraryCalculation.arbitrary)
+        calculations <- Gen.listOfN(numberOfCalculations, arbitraryCalculation.arbitrary)
+      } yield (ignoredCalculations, calculations.map(_.copy(roundedSaving = 0, saving = Some(0.1))))
+
+      forAll(calculationsGen) { case (ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculationsWithMinimalSavings().futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculationsWithMinimalSavings().futureValue mustEqual calculations.length
+      }
+    }
+
+    "must ignore calculations before `from`" in {
+
+      val from = datesBetween(
+        LocalDate.of(2023, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC),
+        LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+      )
+
+      val calculationsGen: Gen[(Instant, List[Calculation], List[Calculation])] = for {
+        from <- from
+        before = from - Period.ofMonths(6)
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        ignoredCalculations <- Gen.listOf(randomCalculation(from = Some(before), to = Some(from)))
+        calculations <- Gen.listOfN(numberOfCalculations, randomCalculation(from = Some(from)))
+      } yield (from, ignoredCalculations.map(_.copy(roundedSaving = 0, saving = Some(0.1))), calculations.map(_.copy(roundedSaving = 0, saving = Some(0.1))))
+
+      forAll(calculationsGen) { case (from, ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculationsWithMinimalSavings(from = Some(from)).futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculationsWithMinimalSavings(from = Some(from)).futureValue mustEqual calculations.length
+      }
+    }
+
+    "must ignore calculations after `to`" in {
+
+      val from = datesBetween(
+        LocalDate.of(2023, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC),
+        LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+      )
+
+      val calculationsGen: Gen[(Instant, List[Calculation], List[Calculation])] = for {
+        from <- from
+        to = from + Period.ofMonths(6)
+        after = to + Period.ofMonths(6)
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        ignoredCalculations <- Gen.listOf(randomCalculation(from = Some(to), to = Some(after)))
+        calculations <- Gen.listOfN(numberOfCalculations, randomCalculation(from = Some(from), to = Some(to)))
+      } yield (to, ignoredCalculations.map(_.copy(roundedSaving = 0, saving = Some(0.1))), calculations.map(_.copy(roundedSaving = 0, saving = Some(0.1))))
+
+      forAll(calculationsGen) { case (to, ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculationsWithMinimalSavings(to = Some(to)).futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculationsWithMinimalSavings(to = Some(to)).futureValue mustEqual calculations.length
+      }
+    }
+
+    "must only include calculations between `from` and `to`" in {
+
+      val from = datesBetween(
+        LocalDate.of(2023, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC),
+        LocalDate.of(2024, 2, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
+      )
+
+      val calculationsGen: Gen[(Instant, Instant, List[Calculation], List[Calculation])] = for {
+        from <- from
+        before = from - Period.ofMonths(6)
+        to = from + Period.ofMonths(6)
+        after = to + Period.ofMonths(6)
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        beforeCalculations <- Gen.listOf(randomCalculation(from = Some(before), to = Some(from)))
+        afterCalculations <- Gen.listOf(randomCalculation(from = Some(to), to = Some(after)))
+        calculations <- Gen.listOfN(numberOfCalculations, randomCalculation(from = Some(from), to = Some(to)))
+      } yield (from, to, (beforeCalculations ++ afterCalculations).map(_.copy(roundedSaving = 0, saving = Some(0.1))), calculations.map(_.copy(roundedSaving = 0, saving = Some(0.1))))
+
+      forAll(calculationsGen) { case (from, to, ignoredCalculations, calculations) =>
+        prepareDatabase()
+        repository.numberOfCalculationsWithMinimalSavings(from = Some(from), to = Some(to)).futureValue mustEqual 0
+        Future.traverse(ignoredCalculations ++ calculations)(repository.save).futureValue
+        repository.numberOfCalculationsWithMinimalSavings(from = Some(from), to = Some(to)).futureValue mustEqual calculations.length
+      }
+    }
+
+    "must return 0 when no calculations have savings values" in {
+
+      val calculationsGen: Gen[List[Calculation]] = for {
+        numberOfCalculations <- Gen.chooseNum(0, 50)
+        calculations <- Gen.listOfN(numberOfCalculations, arbitraryCalculation.arbitrary)
+      } yield (calculations.map(_.copy(roundedSaving = 0, saving = None)))
+
+      forAll(calculationsGen) { calculations =>
+        prepareDatabase()
+        repository.numberOfCalculationsWithMinimalSavings().futureValue mustEqual 0
+        Future.traverse(calculations)(repository.save).futureValue
+        repository.numberOfCalculationsWithMinimalSavings().futureValue mustEqual 0
       }
     }
   }

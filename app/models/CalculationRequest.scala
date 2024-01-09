@@ -22,7 +22,8 @@ final case class CalculationRequest(
                                      annualSalary: BigDecimal,
                                      year1EstimatedNic: BigDecimal,
                                      year2EstimatedNic: BigDecimal,
-                                     roundedSaving: BigDecimal
+                                     roundedSaving: BigDecimal,
+                                     saving: Option[BigDecimal]
                                    )
 
 object CalculationRequest {

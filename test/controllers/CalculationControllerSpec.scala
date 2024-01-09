@@ -57,7 +57,7 @@ class CalculationControllerSpec
 
       running(application) {
 
-        val calculationRequest = CalculationRequest(1, 2.2, 3.3, 4)
+        val calculationRequest = CalculationRequest(1, 2.2, 3.3, 4, Some(4.5))
 
         val request =
           FakeRequest(POST, routes.CalculationController.save().url)
@@ -84,7 +84,7 @@ class CalculationControllerSpec
 
       running(application) {
 
-        val calculationRequest = CalculationRequest(1, 2.2, 3.3, 4)
+        val calculationRequest = CalculationRequest(1, 2.2, 3.3, 4, Some(4.5))
 
         val request =
           FakeRequest(POST, routes.CalculationController.save().url)
@@ -116,6 +116,7 @@ class CalculationControllerSpec
       numberOfCalculations = 1000,
       numberOfUniqueSessions = 500,
       numberOfCalculationsWithNoSavings = 300,
+      numberOfCalculationsWithMinimalSavings = 100,
       totalSavings = 10000,
       totalSavingsAveragedBySession = 50,
       averageSalary = 15000

@@ -52,6 +52,7 @@ class MetricOrchestrationServiceSpec extends AnyFreeSpec with Matchers with Scal
     year1EstimatedNic = 2.2,
     year2EstimatedNic = 3.3,
     roundedSaving = 4,
+    saving = Some(4.5),
     timestamp = clock.instant()
   )
 

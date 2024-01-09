@@ -29,6 +29,7 @@ final case class Calculation(
                               year1EstimatedNic: BigDecimal,
                               year2EstimatedNic: BigDecimal,
                               roundedSaving: BigDecimal,
+                              saving: Option[BigDecimal],
                               timestamp: Instant
                             )
 
@@ -40,6 +41,7 @@ object Calculation extends MongoJavatimeFormats.Implicits {
     (__ \ "year1EstimatedNic").read[BigDecimal] and
     (__ \ "year2EstimatedNic").read[BigDecimal] and
     (__ \ "roundedSaving").read[BigDecimal] and
+    (__ \ "saving").readNullable[BigDecimal] and
     (__ \ "timestamp").read[Instant]
   )(Calculation.apply _)
 
@@ -49,8 +51,9 @@ object Calculation extends MongoJavatimeFormats.Implicits {
     (__ \ "year1EstimatedNic").write[BigDecimal] and
     (__ \ "year2EstimatedNic").write[BigDecimal] and
     (__ \ "roundedSaving").write[BigDecimal] and
+    (__ \ "saving").writeNullable[BigDecimal] and
     (__ \ "timestamp").write[Instant]
-  )(c => (c.sessionId.value, c.annualSalary, c.year1EstimatedNic, c.year2EstimatedNic, c.roundedSaving, c.timestamp))
+  )(c => (c.sessionId.value, c.annualSalary, c.year1EstimatedNic, c.year2EstimatedNic, c.roundedSaving, c.saving, c.timestamp))
 
   implicit lazy val format: OFormat[Calculation] = OFormat(reads, writes)
 }

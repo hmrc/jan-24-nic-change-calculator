@@ -43,6 +43,7 @@ class CalculationService @Inject()(
         year1EstimatedNic = calculationRequest.year1EstimatedNic,
         year2EstimatedNic = calculationRequest.year2EstimatedNic,
         roundedSaving     = calculationRequest.roundedSaving,
+        saving            = calculationRequest.saving,
         timestamp         = Instant.now(clock)
       )
 
@@ -54,6 +55,7 @@ class CalculationService @Inject()(
       numberOfCalculations <- repository.numberOfCalculations(from, to)
       numberOfUniqueSessions <- repository.numberOfUniqueSessions(from, to)
       numberOfCalculationsWithNoSavings <- repository.numberOfCalculationsWithNoSavings(from, to)
+      numberOfCalculationsWithMinimalSavings <- repository.numberOfCalculationsWithMinimalSavings(from, to)
       totalSavings <- repository.totalSavings(from, to)
       totalSavingsAveragedBySession <- repository.totalSavingsAveragedBySession(from, to)
       averageSalary <- repository.averageSalary(from, to)
@@ -63,6 +65,7 @@ class CalculationService @Inject()(
       numberOfCalculations = numberOfCalculations,
       numberOfUniqueSessions = numberOfUniqueSessions,
       numberOfCalculationsWithNoSavings = numberOfCalculationsWithNoSavings,
+      numberOfCalculationsWithMinimalSavings = numberOfCalculationsWithMinimalSavings,
       totalSavings = totalSavings,
       totalSavingsAveragedBySession = totalSavingsAveragedBySession,
       averageSalary = averageSalary

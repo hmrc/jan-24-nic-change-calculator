@@ -28,35 +28,68 @@ class CalculationSpec extends AnyFreeSpec with Matchers {
 
   "Calculation" - {
 
-    "must serialise and deserialise to/from json" in {
+    "must serialise and deserialise to/from json" - {
 
       import MongoJavatimeFormats.Implicits._
 
       val timestamp = Instant.ofEpochSecond(1)
 
-      val calculation = Calculation(
-        sessionId = Scrambled("foo"),
-        annualSalary = 1.1,
-        year1EstimatedNic = 2.2,
-        year2EstimatedNic = 3.3,
-        roundedSaving = 4,
-        timestamp = timestamp
-      )
+      "when saving is present" in {
 
-      val json = Json.toJson(calculation)
+        val calculation = Calculation(
+          sessionId = Scrambled("foo"),
+          annualSalary = 1.1,
+          year1EstimatedNic = 2.2,
+          year2EstimatedNic = 3.3,
+          roundedSaving = 4,
+          saving = Some(4.5),
+          timestamp = timestamp
+        )
 
-      json mustEqual Json.obj(
-        "sessionId" -> "foo",
-        "annualSalary" -> 1.1,
-        "year1EstimatedNic" -> 2.2,
-        "year2EstimatedNic" -> 3.3,
-        "roundedSaving" -> 4,
-        "timestamp" -> timestamp
-      )
+        val json = Json.toJson(calculation)
 
-      val result = json.validate[Calculation]
+        json mustEqual Json.obj(
+          "sessionId" -> "foo",
+          "annualSalary" -> 1.1,
+          "year1EstimatedNic" -> 2.2,
+          "year2EstimatedNic" -> 3.3,
+          "roundedSaving" -> 4,
+          "saving" -> 4.5,
+          "timestamp" -> timestamp
+        )
 
-      result mustEqual JsSuccess(calculation)
+        val result = json.validate[Calculation]
+
+        result mustEqual JsSuccess(calculation)
+      }
+
+      "when saving is absent" in {
+
+        val calculation = Calculation(
+          sessionId = Scrambled("foo"),
+          annualSalary = 1.1,
+          year1EstimatedNic = 2.2,
+          year2EstimatedNic = 3.3,
+          roundedSaving = 4,
+          saving = None,
+          timestamp = timestamp
+        )
+
+        val json = Json.toJson(calculation)
+
+        json mustEqual Json.obj(
+          "sessionId" -> "foo",
+          "annualSalary" -> 1.1,
+          "year1EstimatedNic" -> 2.2,
+          "year2EstimatedNic" -> 3.3,
+          "roundedSaving" -> 4,
+          "timestamp" -> timestamp
+        )
+
+        val result = json.validate[Calculation]
+
+        result mustEqual JsSuccess(calculation)
+      }
     }
   }
 }
